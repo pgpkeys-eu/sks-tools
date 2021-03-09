@@ -6,7 +6,7 @@
 #
 # We assume systemd.
 
-: "${SKS_BASE_DIR=/etc/sks}"
+: "${SKS_CONF_DIR=/etc/sks}"
 : "${SKS_DATA_DIR=/var/lib/sks}"
 : "${SYSTEMD_UNIT_DIR=/lib/systemd/system}"
 : "${SYSTEMD_CONF_DIR=/etc/systemd/system}"
@@ -20,7 +20,7 @@ CICADA_INTERVALS=(17 19 23 29 31 37 41 43 47 53 59 61 67 71 73 79)
 systemctl stop sks
 
 # reconfigure main service
-perl -pi.bak -e "
+perl -ni.bak -e "
   next if /^nodename/;
   next if /^hkp_address/;
   next if /^hkp_port/;
@@ -29,8 +29,9 @@ perl -pi.bak -e "
   next if /^gossip_interval/;
   next if /^stat_hour/;
   next if /^use_port_80/;
-" "$SKS_BASE_DIR/sksconf"
-cat <<EOF >> "$SKS_BASE_DIR/sksconf"
+  print;
+" "$SKS_CONF_DIR/sksconf"
+cat <<EOF >> "$SKS_CONF_DIR/sksconf"
 
 # Added by script
 nodename: sks-0
@@ -43,24 +44,34 @@ stat_hour: 0
 EOF
 
 # add main node to (shared) membership
-echo "127.0.0.1 11370 # sks-0" >> "$SKS_BASE_DIR/membership"
+echo "127.0.0.1 11370 # sks-0" >> "$SKS_CONF_DIR/membership"
+
+# enable search into dump dir
+chmod og+x "$SKS_DATA_DIR"
 
 for i in $(seq 1 $SKS_EXTRA_COPIES); do
-  basedir="${SKS_BASE_DIR}-$i"
-  datadir="${SKS_DATA_DIR}-$i"
+  basedir="${SKS_DATA_DIR}-$i"
   nodename="sks-$i"
   recon_port=$(( 20370 + i * 1000 ))
   hkp_port=$(( 20371 + i * 1000 ))
   daemon_user="${SKS_DAEMON_USER}-$i"
 
-  # clone datadir but share dump read-only
-  rsync -a --exclude dump "$SKS_DATA_DIR" "$datadir"
-  chown -R "$daemon_user:$daemon_user" "$datadir"
-  ln -s "${SKS_DATA_DIR}/dump" "$datadir/"
+  mkdir -p "$basedir$SKS_CONF_DIR"
+  mkdir -p "$basedir$SKS_DATA_DIR"
+  mkdir -p "$basedir/var/spool/sks"
+  mkdir -p "$basedir/var/run"
+  ln -s "/var/run/sks-$i" "$basedir/var/run/sks"
 
-  mkdir -p "$basedir"
-  ln -s "$SKS_BASE_DIR/membership" "$basedir/membership"
-  < "$SKS_BASE_DIR/sksconf" > "$basedir/sksconf" perl -pi -e "
+  # clone datadir but share dump read-only
+  rsync -a --exclude dump "$SKS_DATA_DIR/" "$basedir$SKS_DATA_DIR"
+  addgroup --system $daemon_user
+  adduser --system $daemon_user
+  adduser $daemon_user $daemon_user
+  chown -R "$daemon_user:$daemon_user" "$basedir$SKS_DATA_DIR"
+  ln -s "${SKS_DATA_DIR}/dump" "$basedir$SKS_DATA_DIR/"
+
+  ln -s "$SKS_CONF_DIR/membership" "$basedir$SKS_CONF_DIR/membership"
+  < "$SKS_CONF_DIR/sksconf" > "$basedir$SKS_CONF_DIR/sksconf" perl -ne "
     next if /^nodename/;
     next if /^recon_address/;
     next if /^recon_port/;
@@ -69,34 +80,33 @@ for i in $(seq 1 $SKS_EXTRA_COPIES); do
     next if /^gossip_interval/;
     next if /^stat_hour/;
     next if /^use_port_80/;
+    print;
   "
-  cat <<EOF >> "$basedir/sksconf"
-
-# Added by script
+  cat <<EOF >> "$basedir$SKS_CONF_DIR/sksconf"
 nodename: $nodename
-recon_address: 127.0.0.1
+recon_address: 0.0.0.0
 recon_port: $recon_port
-hkp_address: 127.0.0.1
-hkp_port: $khp_port
+hkp_address: 127.0.0.1 ::1
+hkp_port: $hkp_port
 gossip_interval: ${CICADA_INTERVALS[$i]}
 stat_hour: $i
 EOF
 
   # add self to (shared) membership
-  echo "127.0.0.1 $recon_port # $nodename" >> "$SKS_BASE_DIR/membership"
+  echo "127.0.0.1 $recon_port # $nodename" >> "$SKS_CONF_DIR/membership"
 
   # clone services
-  < "$SYSTEMD_UNIT_DIR/sks-recon.service" > "$SYSTEMD_CONF_DIR/sks-recon-$i.service" perl -pi -e "
+  < "$SYSTEMD_UNIT_DIR/sks-recon.service" > "$SYSTEMD_CONF_DIR/sks-recon-$i.service" perl -pe "
     s,sks\.service,sks-$i.service,;
-    s,$SKS_DATA_DIR,$SKS_DATA_DIR.$i,;
-    s,(RuntimeDirectory=.*),\1.$i,;
+    s,$SKS_DATA_DIR,$basedir$SKS_DATA_DIR,;
+    s,(RuntimeDirectory=.*),\1-$i,;
     s,(User=.*),User=$daemon_user,;
     s,(ExecStart=/usr/sbin/sks),\1 -basedir $basedir,;
   "
-  < "$SYSTEMD_UNIT_DIR/sks.service" > "$SYSTEMD_CONF_DIR/sks-$i.service" perl -pi -e "
+  < "$SYSTEMD_UNIT_DIR/sks.service" > "$SYSTEMD_CONF_DIR/sks-$i.service" perl -pe "
     s,sks-recon\.service,sks-recon-$i.service,;
-    s,$SKS_DATA_DIR,$SKS_DATA_DIR.$i,;
-    s,(RuntimeDirectory=.*),\1.$i,;
+    s,$SKS_DATA_DIR,$basedir$SKS_DATA_DIR,;
+    s,(RuntimeDirectory=.*),\1-$i,;
     s,(User=.*),User=$daemon_user,;
     s,(ExecStart=/usr/sbin/sks),\1 -basedir $basedir,;
   "
