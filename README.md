@@ -43,3 +43,8 @@ A renewal-hook script to ensure that renewed certs are automatically applied.
 ## etc/logrotate.d
 
 Limit apache log retention to 48h
+
+## etc/tor
+
+Hidden service configuration parameters.
+Note that port 11371 has to be redirected to the real ip of the server in order to pass through the revproxy.
