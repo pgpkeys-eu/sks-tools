@@ -6,6 +6,8 @@ Toolkit for spinning up legacy sks deployments
 A script that takes a standalone dpkg-installed sks instance and duplicates it (default twice) to make a cluster.
 The duplicates will sync with each other and the primary, but not with the primary's external peers.
 
+Note that we leave sks listening on 127.0.0.1:11371 so that it can announce the correct port on the status page.
+
 ## etc/apache2
 
 Apache reverse-proxy configuration.
@@ -29,7 +31,12 @@ certbot -d sks.pgpkeys.eu --webroot --webroot-path /var/www/pgpkeyserver-lite
 rm /etc/apache2/sites-enabled/sks.pgpkeys.eu.conf
 ```
 
-Now unpack the contents of etc/apache2 into the corresponding places, and incant:
+Now unpack the contents of etc/apache2 into the corresponding places.
+Edit /etc/apache2/ports.conf and add all your non-localhost listening addresses with port 11371 (see file comments).
+This is because sks will listen on localhost port 11371 and we mustn't step on its toes.
+Keep the `Listen 127.0.113.71:11371` entry as this is required for tor.
+
+Finally, incant:
 
 ```
 a2ensite sks.pgpkeys.eu
@@ -47,4 +54,3 @@ Limit apache log retention to 48h
 ## etc/tor
 
 Hidden service configuration parameters.
-Note that port 11371 has to be redirected to the real ip of the server in order to pass through the revproxy.

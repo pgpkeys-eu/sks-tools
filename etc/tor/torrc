@@ -1,5 +1,5 @@
 HiddenServiceDir /var/lib/tor/hidden_service/
 HiddenServicePort 80 127.0.0.1:80
 HiddenServicePort 443 127.0.0.1:443
-# Note that we need to use the real IP here to hit the reverse proxy
-HiddenServicePort 11371 <REALIPADDRESS>:11371
+# Note that we need to use a distinct localhost address to hit the revproxy
+HiddenServicePort 11371 127.0.113.71:11371
