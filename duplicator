@@ -14,7 +14,7 @@
 : "${SKS_EXTRA_COPIES=2}"
 
 # use cicada method of minimising sync clashes
-CICADA_INTERVALS=(17 19 23 29 31 37 41 43 47 53 59 61 67 71 73 79)
+CICADA_INTERVALS=(1 2 3 5 7 11 13 17)
 
 # shut down main service
 systemctl stop sks
@@ -39,12 +39,12 @@ recon_address: 0.0.0.0
 recon_port: 11370
 hkp_address: 127.0.0.1
 hkp_port: 11371
-gossip_interval: ${CICADA_INTERVALS[0]}
+gossip_interval: 5
 stat_hour: 0
 EOF
 
-# add main node to (shared) membership
-echo "127.0.0.1 11370 # sks-0" >> "$SKS_CONF_DIR/membership"
+# add main node to internal membership
+echo "127.0.0.1 11370 # sks-0" > "$SKS_CONF_DIR/membership.internal"
 
 # enable search into dump dir
 chmod og+x "$SKS_DATA_DIR"
@@ -75,7 +75,7 @@ for i in $(seq 1 $SKS_EXTRA_COPIES); do
   chown -R "$daemon_user:$daemon_user" "$basedir/var/spool/sks"
 
   # copy and edit configuration
-  ln -s "$SKS_CONF_DIR/membership" "$basedir$SKS_CONF_DIR/membership"
+  ln -s "$SKS_CONF_DIR/membership.internal" "$basedir$SKS_CONF_DIR/membership"
   < "$SKS_CONF_DIR/sksconf" > "$basedir$SKS_CONF_DIR/sksconf" perl -ne "
     next if /^nodename/;
     next if /^recon_address/;
@@ -93,12 +93,13 @@ recon_address: 0.0.0.0
 recon_port: $recon_port
 hkp_address: 127.0.0.1 ::1
 hkp_port: $hkp_port
-gossip_interval: ${CICADA_INTERVALS[$i]}
+gossip_interval: 1
 stat_hour: $i
 EOF
 
-  # add self to (shared) membership
+  # add self to membership files
   echo "127.0.0.1 $recon_port # $nodename" >> "$SKS_CONF_DIR/membership"
+  echo "127.0.0.1 $recon_port # $nodename" >> "$SKS_CONF_DIR/membership.internal"
 
   # clone services
   < "$SYSTEMD_UNIT_DIR/sks-recon.service" > "$SYSTEMD_CONF_DIR/sks-recon-$i.service" perl -pe "
@@ -123,4 +124,4 @@ done
 # start main service
 systemctl start sks
 
-echo "Now reconfigure your webserver"
+echo "Now reconfigure your webserver to forward port 80,443 queries to localhost 21371,22371"
