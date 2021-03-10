@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -e
+err_report() {
+    echo "errexit on line $(caller)" >&2
+}
+trap err_report ERR
+
+if [[ $RENEWED_DOMAINS ]]; then
+    for service in apache2 nginx; do
+        if systemctl status $service | grep -q '(running)'; then
+            service $service reload >/dev/null
+        fi
+    done
+fi
