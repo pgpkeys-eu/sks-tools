@@ -56,20 +56,25 @@ for i in $(seq 1 $SKS_EXTRA_COPIES); do
   hkp_port=$(( 20371 + i * 1000 ))
   daemon_user="${SKS_DAEMON_USER}-$i"
 
+  # create directory structure
   mkdir -p "$basedir$SKS_CONF_DIR"
   mkdir -p "$basedir$SKS_DATA_DIR"
   mkdir -p "$basedir/var/spool/sks"
   mkdir -p "$basedir/var/run"
   ln -s "/var/run/sks-$i" "$basedir/var/run/sks"
 
-  # clone datadir but share dump read-only
+  # clone datadir but soft link dump (read-only)
   rsync -a --exclude dump "$SKS_DATA_DIR/" "$basedir$SKS_DATA_DIR"
+  ln -s "${SKS_DATA_DIR}/dump" "$basedir$SKS_DATA_DIR/"
+
+  # set permissions
   addgroup --system $daemon_user
   adduser --system $daemon_user
   adduser $daemon_user $daemon_user
   chown -R "$daemon_user:$daemon_user" "$basedir$SKS_DATA_DIR"
-  ln -s "${SKS_DATA_DIR}/dump" "$basedir$SKS_DATA_DIR/"
+  chown -R "$daemon_user:$daemon_user" "$basedir/var/spool/sks"
 
+  # copy and edit configuration
   ln -s "$SKS_CONF_DIR/membership" "$basedir$SKS_CONF_DIR/membership"
   < "$SKS_CONF_DIR/sksconf" > "$basedir$SKS_CONF_DIR/sksconf" perl -ne "
     next if /^nodename/;
