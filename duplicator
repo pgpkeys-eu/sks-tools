@@ -41,7 +41,7 @@ stat_hour: 0
 EOF
 
 # add main node to internal membership (idempotent)
-[[ ! -e "$SKS_CONF_DIR/membership.internal" ]] || \
+[[ -f "$SKS_CONF_DIR/membership.internal" ]] || \
   echo "127.0.0.1 11370 # sks-0" > "$SKS_CONF_DIR/membership.internal"
 
 # enable search into shared dump dir
