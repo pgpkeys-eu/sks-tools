@@ -69,9 +69,7 @@ for i in $(seq 1 $SKS_EXTRA_COPIES); do
   ln -s "${SKS_DATA_DIR}/dump" "$basedir$SKS_DATA_DIR/"
 
   # set permissions
-  addgroup --system $daemon_user
-  adduser --system $daemon_user
-  adduser $daemon_user $daemon_user
+  adduser --system --group --home "$basedir$SKS_DATA_DIR" "$daemon_user"
   chown -R "$daemon_user:$daemon_user" "$basedir$SKS_DATA_DIR"
   chown -R "$daemon_user:$daemon_user" "$basedir/var/spool/sks"
 
