@@ -13,7 +13,7 @@ SKS_EXTRA_COPIES=$1
 : "${SYSTEMD_UNIT_DIR=/lib/systemd/system}"
 : "${SYSTEMD_CONF_DIR=/etc/systemd/system}"
 : "${SKS_DAEMON_USER=debian-sks}"
-: "${SKS_EXTRA_COPIES=2}"
+: "${SKS_EXTRA_COPIES=4}"
 
 # shut down main service to ensure db consistency
 systemctl stop sks
