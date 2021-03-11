@@ -40,6 +40,47 @@ gossip_interval: 5
 stat_hour: 0
 EOF
 
+# set up services
+cat <<EOF > "$SYSTEMD_UNIT_DIR/sks-recon.service"
+[Unit]
+Description=SKS reconciliation service (master)
+BindsTo=sks.service
+After=sks.service
+Documentation=man:sks(8)
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/sks -stdoutlog recon
+User=$SKS_DAEMON_USER
+WorkingDirectory=$SKS_DATA_DIR
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+cat <<EOF > "$SYSTEMD_CONF_DIR/sks.service"
+[Unit]
+Description=SKS database service (master)
+Wants=sks-recon.service
+Before=sks-recon.service
+After=local-fs.target network.target 
+Documentation=man:sks(8)
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/sks -stdoutlog db
+User=$SKS_DAEMON_USER
+RuntimeDirectory=sks
+RuntimeDirectoryMode=700
+WorkingDirectory=$SKS_DATA_DIR
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # add main node to internal membership (idempotent)
 [[ -f "$SKS_CONF_DIR/membership.internal" ]] || \
   echo "127.0.0.1 11370 # sks-0" > "$SKS_CONF_DIR/membership.internal"
@@ -100,21 +141,46 @@ EOF
   echo "127.0.0.1 $recon_port # $nodename" >> "$SKS_CONF_DIR/membership"
   echo "127.0.0.1 $recon_port # $nodename" >> "$SKS_CONF_DIR/membership.internal"
 
-  # clone services
-  < "$SYSTEMD_UNIT_DIR/sks-recon.service" > "$SYSTEMD_CONF_DIR/sks-recon-$i.service" perl -pe "
-    s,sks\.service,sks-$i.service,;
-    s,$SKS_DATA_DIR,$basedir$SKS_DATA_DIR,;
-    s,(RuntimeDirectory=.*),\1-$i,;
-    s,(User=.*),User=$daemon_user,;
-    s,(ExecStart=/usr/sbin/sks),\1 -basedir $basedir,;
-  "
-  < "$SYSTEMD_UNIT_DIR/sks.service" > "$SYSTEMD_CONF_DIR/sks-$i.service" perl -pe "
-    s,sks-recon\.service,sks-recon-$i.service,;
-    s,$SKS_DATA_DIR,$basedir$SKS_DATA_DIR,;
-    s,(RuntimeDirectory=.*),\1-$i,;
-    s,(User=.*),User=$daemon_user,;
-    s,(ExecStart=/usr/sbin/sks),\1 -basedir $basedir,;
-  "
+  # set up services
+  cat <<EOF > "$SYSTEMD_CONF_DIR/sks-recon-$i.service"
+[Unit]
+Description=SKS reconciliation service (node $i)
+BindsTo=sks-$i.service
+After=sks-$i.service
+Documentation=man:sks(8)
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/sks -basedir $basedir -stdoutlog recon
+User=$daemon_user
+WorkingDirectory=$basedir$SKS_DATA_DIR
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  cat <<EOF > "$SYSTEMD_CONF_DIR/sks-$i.service"
+[Unit]
+Description=SKS database service (node $i)
+Wants=sks-recon-$i.service
+Before=sks-recon-$i.service
+After=local-fs.target network.target 
+Documentation=man:sks(8)
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/sks -basedir $basedir -stdoutlog db
+User=$daemon_user
+RuntimeDirectory=sks-$i
+RuntimeDirectoryMode=700
+WorkingDirectory=$basedir$SKS_DATA_DIR
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
   
   # clone cron job
   < /etc/cron.daily/sks > /etc/cron.daily/sks-$i perl -pe "
