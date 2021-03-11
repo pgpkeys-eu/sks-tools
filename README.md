@@ -18,7 +18,7 @@ Before deploying, invoke the following by hand:
 
 ```
 apt install certbot apache2
-a2enmod ssl rewrite proxy_http
+a2enmod ssl rewrite proxy_http lbmethod_byrequests proxy_balancer
 openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
 cat <<EOF >> /etc/apache2/sites-enabled/sks.pgpkeys.eu.conf
 <VirtualHost *:80>
