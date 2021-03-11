@@ -6,19 +6,16 @@ Toolkit for spinning up legacy sks deployments
 A script that takes a standalone dpkg-installed sks instance and duplicates it (default 4x) to make a cluster.
 The duplicates will sync with each other and the primary, but not with the primary's external peers.
 
-Note that we leave sks listening on 127.0.0.1:11371 so that it can announce the correct port on the status page.
-
 ## etc/apache2
 
 Apache reverse-proxy configuration.
-This assumes that port 11371 is directed to the primary node, and 80,443 to the duplicates.
-NB it does not (yet?) perform any active load-balancing across the three cluster members.
-
 Before deploying, invoke the following by hand to install all your prerequisites (including a letsencrypt cert):
 
 ```
+cd /var/www
+git clone https://github.com/pgpkeys-eu/pgpkeyserver-lite
 apt install certbot apache2
-a2enmod ssl rewrite proxy_http lbmethod_byrequests proxy_balancer
+a2enmod ssl rewrite proxy_http lbmethod_byrequests proxy_balancer headers
 openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
 cat <<EOF >> /etc/apache2/sites-enabled/sks.pgpkeys.eu.conf
 <VirtualHost *:80>
