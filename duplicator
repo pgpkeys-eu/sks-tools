@@ -13,13 +13,10 @@
 : "${SKS_DAEMON_USER=debian-sks}"
 : "${SKS_EXTRA_COPIES=2}"
 
-# use cicada method of minimising sync clashes
-CICADA_INTERVALS=(1 2 3 5 7 11 13 17)
-
-# shut down main service
+# shut down main service to ensure db consistency
 systemctl stop sks
 
-# reconfigure main service
+# reconfigure main node (should be idempotent?)
 perl -ni.bak -e "
   next if /^nodename/;
   next if /^hkp_address/;
@@ -32,8 +29,6 @@ perl -ni.bak -e "
   print;
 " "$SKS_CONF_DIR/sksconf"
 cat <<EOF >> "$SKS_CONF_DIR/sksconf"
-
-# Added by script
 nodename: sks-0
 recon_address: 0.0.0.0
 recon_port: 11370
@@ -43,14 +38,18 @@ gossip_interval: 5
 stat_hour: 0
 EOF
 
-# add main node to internal membership
-echo "127.0.0.1 11370 # sks-0" > "$SKS_CONF_DIR/membership.internal"
+# add main node to internal membership (idempotent)
+[[ ! -e "$SKS_CONF_DIR/membership.internal" ]] || \
+  echo "127.0.0.1 11370 # sks-0" > "$SKS_CONF_DIR/membership.internal"
 
-# enable search into dump dir
+# enable search into shared dump dir
 chmod og+x "$SKS_DATA_DIR"
 
 for i in $(seq 1 $SKS_EXTRA_COPIES); do
   basedir="${SKS_DATA_DIR}-$i"
+  # Idempotency
+  [[ ! -e "$basedir" ]] || continue
+
   nodename="sks-$i"
   recon_port=$(( 20370 + i * 1000 ))
   hkp_port=$(( 20371 + i * 1000 ))
@@ -117,11 +116,16 @@ EOF
     s,(ExecStart=/usr/sbin/sks),\1 -basedir $basedir,;
   "
   
+  # clone cron job
+  < /etc/cron.daily/sks > /etc/cron.daily/sks-$i perl -pe "
+    s,/var/lib/sks,/var/lib/sks-$i/var/lib/sks,g;
+    s,/var/spool/sks,/var/lib/sks-$i/var/spool/sks,g;
+  "
+  chmod +x /etc/cron.daily/sks-$i
+
   systemctl enable sks-$i
   systemctl start sks-$i
 done
 
 # start main service
 systemctl start sks
-
-echo "Now reconfigure your webserver to forward port 80,443 queries to localhost 21371,22371"
