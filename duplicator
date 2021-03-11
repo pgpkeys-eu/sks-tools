@@ -59,7 +59,7 @@ RestartSec=5s
 [Install]
 WantedBy=multi-user.target
 EOF
-cat <<EOF > "$SYSTEMD_CONF_DIR/sks.service"
+cat <<EOF > "$SYSTEMD_UNIT_DIR/sks.service"
 [Unit]
 Description=SKS database service (master)
 Wants=sks-recon.service
