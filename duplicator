@@ -6,6 +6,8 @@
 #
 # We assume systemd.
 
+SKS_EXTRA_COPIES=$1
+
 : "${SKS_CONF_DIR=/etc/sks}"
 : "${SKS_DATA_DIR=/var/lib/sks}"
 : "${SYSTEMD_UNIT_DIR=/lib/systemd/system}"
