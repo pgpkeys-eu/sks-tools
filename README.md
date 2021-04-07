@@ -15,7 +15,7 @@ Before deploying, invoke the following by hand to install all your prerequisites
 cd /var/www
 git clone https://github.com/pgpkeys-eu/pgpkeyserver-lite
 apt install certbot apache2
-a2enmod ssl rewrite proxy_http lbmethod_byrequests proxy_balancer headers
+a2enmod ssl rewrite proxy proxy_http lbmethod_byrequests proxy_balancer headers
 openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
 cat <<EOF >> /etc/apache2/sites-enabled/sks.pgpkeys.eu.conf
 <VirtualHost *:80>
